@@ -25,9 +25,9 @@ This post summarises how the Analytical Platform leverages [Amazon Athena](https
 * The flexibility, scalability and cost-effectiveness of a data lake  
 * The structured data storage and processing capabilities of a data warehouse
 
-The Analytical Platform transaction data lake architecture follows a standard ELT structure to produce cleaner, more reliable data. Data is collected in various formats from a wide range of sources, both internal and external to the MoJ, and uploaded to an [S3](https://aws.amazon.com/pm/serv-s3)-based data lake as [Parquet files](https://en.wikipedia.org/wiki/Apache_Parquet). Datasets are big but not huge, with the largest table less than 200GB (~3 billion rows) and the largest dataset less than 500GB.
+The Analytical Platform transaction data lake architecture follows a standard ELT structure to produce cleaner, more reliable data. Data is collected in various formats from a wide range of sources, both internal and external to the MoJ, and uploaded to an [S3](https://aws.amazon.com/pm/serv-s3)-based data lake. Datasets are big but not huge, with the largest table less than 200GB (~3 billion rows) and the largest dataset less than 500GB.
 
-The processing layer transforms the data through a series of batch procedures before writing it back to the data lake. First, the data is standardised, and Slowly Changing Dimension Type 2 [(SCD2)](https://en.wikipedia.org/wiki/Slowly_changing_dimension) is applied to track historical changes. Second, the data is [denormalised](https://en.wikipedia.org/wiki/Denormalization) and [modelled](https://en.wikipedia.org/wiki/Data_modeling) to create the conformed layer. This makes the data easier and more efficient for users to consume. This workflow can be summarised using the [Medallion architecture](https://medium.com/@junshan0/medallion-architecture-what-why-and-how-ce07421ef06f), in which data transitions through Bronze, Silver, and Gold layers, increasing in structure and quality at each stage:
+The processing layer applies batch procedures to transform data and make it easier and more efficient for users to consume. Initially, the data is standardized, converted to [Parquet](https://en.wikipedia.org/wiki/Apache_Parquet) format if necessary, and historical changes are tracked using Slowly Changing Dimension Type 2 ([SCD2](https://en.wikipedia.org/wiki/Slowly_changing_dimension)). Subsequently, the data is [denormalized](https://en.wikipedia.org/wiki/Denormalization) and [modeled](https://en.wikipedia.org/wiki/Data_modeling) to form the conformed layer. This workflow can be summarised using the [Medallion architecture](https://medium.com/@junshan0/medallion-architecture-what-why-and-how-ce07421ef06f), in which data transitions through Bronze, Silver, and Gold layers, increasing in structure and quality at each stage:
 
 ![The three data lake architecture layers and how they are populated](https://raw.githubusercontent.com/ministryofjustice/data-and-analytics-engineering/main/src/content/about/architecture/images/context-diagram.excalidraw.png)
 
@@ -44,9 +44,9 @@ Although Athena is often used as an ad-hoc querying engine, it can also be used 
 * Using a single tool for processing and querying makes it easier to share best practice between data engineers and analysts, for example on [performance tuning](https://docs.aws.amazon.com/athena/latest/ug/performance-tuning.html), as well as build shared utilities.
 * Athena calculates the compute capacity needed to execute queries, eliminating the necessity for manual configuration and optimisation.
 * Whilst Athena [enforces various quotas](https://docs.aws.amazon.com/athena/latest/ug/service-limits.html), it is possible to request increases, up to a limit. This is particularly relevant for ELT processes which can take longer to run and involve hundreds of tables. For example, we have extended the DML (Data Manipulation Language) query timeout from 30 minutes to 60 minutes, and raised the limit on concurrent queries from 150 to 500.
-* Athena's pricing model, set at $5 per terabyte scanned, makes it highly cost-effective to transform gigabyte-scale datasets like ours.
+* Athena's pricing model, at $5 per terabyte scanned, makes it highly cost-effective to transform gigabyte-scale datasets like ours. For instance, we compared converting CSV files to Parquet using Athena and Glue PySpark in its default configuration. We found that, for our volume range, Athena was 99% cheaper than Glue, where costs depend on the resources utilized.
 
-Despite its advantages, the Hive table format lacks support for numerous standard database features, resulting in a pipeline that is less robust and flexible and less suitable for standardising the data. Using the Iceberg table format helps address this gap.
+Despite its advantages, the Hive table format lacks support for numerous standard database features, resulting in a pipeline that can be less robust and flexible. Using the Iceberg table format helps address this gap.
 
 ### Iceberg for reliability
 
@@ -110,6 +110,10 @@ In addition, the runtime for the longest jobs has decreased by 75%, and intermit
 
 Furthermore, the unification of the data processing tools fosters a culture of collaboration within our data teams, making it easier to share enhancements and best practices. Looking ahead, we are excited about the potential to further innovate and refine our analytics capabilities, ensuring we continue to deliver greater value to the justice system.
 
+### What's Next (Added Nov 2024)
+
+At the moment, we publish Athena query-related metrics to [Amazon CloudWatch](https://docs.aws.amazon.com/athena/latest/ug/query-metrics-viewing.html). This enables us to track important metrics such as the amount of data processed and the number of failed queries. This is particularly critical because Athena operates within a [shared regional cluster](https://repost.aws/questions/QUdX6shGHrT-GDpuc_NDkSNA/how-does-athena-prepare-a-cluster-of-compute-nodes-for-a-specific-query), meaning all users in the same AWS region share the same pool of resources. As a result, it's essential to receive early warnings when we approach resource limits, allowing us time to take corrective action. However, CloudWatch metrics and dashboards are somewhat limited, so we are evaluating the option to publish metrics to S3 and visualize them using [Amazon Managed Grafana](https://aws.amazon.com/grafana/).
+
 ### Acknowledgements
 
 I would like to thank the following individuals for their invaluable contributions to the technical solution:
@@ -118,6 +122,7 @@ I would like to thank the following individuals for their invaluable contributio
 - David Bridgwood
 - Jacob Hamblin-Pyke
 - Tom Holt
+- Matt Laverty
 - Theodore Manassis
 - William Orr
 
